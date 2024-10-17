@@ -45,8 +45,16 @@ android {
 repositories {
     google()
     mavenCentral()
+    // Mapbox Maven repository
+    maven {
+        url = uri("https://api.mapbox.com/downloads/v2/releases/maven")
+        // Do not change the username below. It should always be "mapbox" (not your username).
+        credentials.username = "mapbox"
+        // Use the secret token stored in gradle.properties as the password
+        credentials.password = providers.gradleProperty("MAPBOX_DOWNLOADS_TOKEN").get()
+        authentication { basic(BasicAuthentication) }
+    }
 }
-
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
@@ -55,4 +63,5 @@ dependencies {
     testImplementation "junit:junit:$junitVersion"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
+    implementation 'com.mapbox.maps:android:11.7.1'
 }

@@ -15,14 +15,14 @@
     "Package.swift",
     "CapacitorMapbox.podspec"
   ],
-  "author": "ucar-sinan",
+  "author": "sinan-ucar-doktar",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ucar-sinan/capacitor-mapbox.git"
+    "url": "git+https://github.com/sinan-ucar-doktar/capacitor-mapbox.git"
   },
   "bugs": {
-    "url": "https://github.com/ucar-sinan/capacitor-mapbox/issues"
+    "url": "https://github.com/sinan-ucar-doktar/capacitor-mapbox/issues"
   },
   "keywords": [
     "capacitor",
