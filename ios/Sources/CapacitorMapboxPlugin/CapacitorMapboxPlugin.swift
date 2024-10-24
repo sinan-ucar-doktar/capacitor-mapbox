@@ -41,8 +41,8 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
 
     @objc func buttonAction(sender: UIButton!) {
         DispatchQueue.main.async {
-            let heightFactor = self.modalIsMinimized ? 0.7 : 0.3
-            let deactivateFactor = heightFactor == 0.3 ? 0.7 : 0.3
+            let heightFactor = self.modalIsMinimized ? 0.5 : 0.3
+            let deactivateFactor = heightFactor == 0.3 ? 0.5 : 0.3
             print("heightFactor \(heightFactor)")
             let mainView = self.bridge?.viewController?.view
             if self.modalIsMinimized {
@@ -264,7 +264,7 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
             self.minimizedConstraint = self.mapCanvas.heightAnchor.constraint(
                 equalToConstant: mainView!.bounds.height * 0.1)
             self.fullScreenConstraint = self.mapCanvas.heightAnchor.constraint(
-                equalToConstant: mainView!.bounds.height * 0.7)
+                equalToConstant: mainView!.bounds.height * 0.5)
             self.minimizedConstraint!.isActive = true
             self.fullScreenConstraint!.isActive = false
             NSLayoutConstraint.activate([
@@ -302,22 +302,22 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
             self.mapCanvas.addSubview(self.mapView!)
             self.mapCanvas.insertSubview(button, aboveSubview: self.mapView!)
 
-            do {
-                //                let stringData = Data(base64Encoded: self.markerIcon)
-                let uiImage = UIImage(named: "tractor-marker")  // UIImage(data: stringData!)
-                //                else {
-                //                          print("Error: couldn't create UIImage")
-                //                          return
-                //                      }
-                try self.mapView?.mapboxMap.addImage(
-                    uiImage!, id: "tractor_marker_image")
-                let res = self.mapView?.mapboxMap.imageExists(
-                    withId: "tractor_marker_image")
-                //                print("image exist \(String(describing: res))")
-            } catch let error {
-                print("marker image add error")
-                print(error.localizedDescription)
-            }
+            //            do {
+            //                //                let stringData = Data(base64Encoded: self.markerIcon)
+            //                let uiImage = UIImage(named: "tractor-marker")  // UIImage(data: stringData!)
+            //                //                else {
+            //                //                          print("Error: couldn't create UIImage")
+            //                //                          return
+            //                //                      }
+            //                try self.mapView?.mapboxMap.addImage(
+            //                    uiImage!, id: "tractor_marker_image")
+            //                let res = self.mapView?.mapboxMap.imageExists(
+            //                    withId: "tractor_marker_image")
+            //                                print("image exist \(String(describing: res))")
+            //            } catch let error {
+            //                print("marker image add error")
+            //                print(error.localizedDescription)
+            //            }
             call.resolve([
                 "status": true
             ])
@@ -328,6 +328,9 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
         DispatchQueue.main.async {
 
             //            let mainView = self.bridge?.viewController?.view
+
+            self.minimizedConstraint?.isActive = false
+            self.fullScreenConstraint?.isActive = false
             self.mapView?.removeFromSuperview()
             self.mapCanvas.removeFromSuperview()
             call.resolve(["status": true])
@@ -421,7 +424,11 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
 
         DispatchQueue.main.async {
             let polygonId = call.getString("polygonId") ?? "polygonId"
+
+            let imageUrl = call.getString("imageUrl") ?? ""
+//            let bounds = (call.getArray("bounds") ?? []) as [[Double]]
             let geojson = (call.getArray("geoJson") ?? []) as! [[[Double]]]
+            let hasIntersection = call.getBool("hasIntersect", false)
             let isErrorPolygon = call.getBool("isError", false)
             if geojson.count == 0 {
                 return call.reject("geojson not found")
@@ -459,6 +466,15 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
                     } else {
                         try self.mapView?.mapboxMap.addSource(polygonSource)
                         var layer = FillLayer(id: polygonId, source: polygonId)
+                        if hasIntersection {
+                            layer.fillColor = .constant(
+                                StyleColor(
+                                    red: 0, green: 255, blue: 0, alpha: 0.8)!
+                            )
+                            layer.fillOutlineColor = .constant(
+                                StyleColor(
+                                    red: 0, green: 255, blue: 0, alpha: 1)!)
+                        }else{
                         if isErrorPolygon {
                             layer.fillColor = .constant(
                                 StyleColor(
@@ -470,12 +486,15 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
                         } else {
                             layer.fillColor = .constant(
                                 StyleColor(
-                                    red: 142, green: 142, blue: 142, alpha: 0.6)!
+                                    red: 142, green: 142, blue: 142,
+                                    alpha: 0.6)!
                             )
                             layer.fillOutlineColor = .constant(
                                 StyleColor(
-                                    red: 142, green: 142, blue: 142, alpha: 1)!)
-                        }
+                                    red: 142, green: 142, blue: 142,
+                                    alpha: 1)!)
+                        }}
+
                         try self.mapView?.mapboxMap.addLayer(layer)
                     }
                     print("mapbox add polygon")
@@ -539,6 +558,7 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
         DispatchQueue.main.async {
             do {
                 let imageUrl = call.getString("imageUrl") ?? ""
+
                 let imageBounds = call.getArray("bounds", []) as! [[Double]]
                 print("addOverlayImage")
                 print(imageBounds)
@@ -568,6 +588,7 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
         }
     }
 
+    var customPointAnnotation: PointAnnotation?
     @objc func addOrUpdateMarker(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             do {
@@ -575,7 +596,7 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
                     call.getArray("coordinates", []) as! [Double]
                 //                let markerImage = call.getString(
                 //                    "markerImage", "https://orbit-web.doktar.io/vra-marker.svg")
-                let heading = call.getDouble("heading")
+                let heading = call.getDouble("heading") ?? 35
 
                 let hasMarker = call.getBool("hasMarker", false)
                 if markerCoordinates.count == 0 {
@@ -584,34 +605,83 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
                 let locationCoordinate = CLLocationCoordinate2D(
                     latitude: markerCoordinates[1],
                     longitude: markerCoordinates[0])
+                let customImage = UIImage(named: "tractor-marker")
+                //                let pointAnnotationManager = self.mapView?.annotations.makePointAnnotationManager()
+                //
+                //                if(self.customPointAnnotation != nil){
+                //                    self.customPointAnnotation!.point = Point(locationCoordinate)
+                //                }else{
+                //
+                //                    self.customPointAnnotation = PointAnnotation(id: "tractor-marker", point: Point(locationCoordinate))
+                //                    self.customPointAnnotation!.image = .init(image: customImage!, name: "tractor_marker_image")
+                //                    self.customPointAnnotation!.isDraggable = true
+                //                    self.customPointAnnotation!.iconOffset = [0, 12]
+                //                    self.customPointAnnotation!.iconRotate = heading
+                //
+                //                    pointAnnotationManager!.annotations = [self.customPointAnnotation!]
+                //                }
+
                 var feature = Feature(geometry: Point(locationCoordinate))
                 feature.properties = [
-                    "icon_key": .string("tractor_marker_image")
+                    "icon_key": .string("tractor_marker_image"),
+                    "icon_rotation": .number(heading + 180),
                 ]
                 var source = GeoJSONSource(id: "tractor_marker")
                 source.data = .feature(feature)
-                var xxx: Source?
+                var previousSource: Source?
+                var iconLayer: SymbolLayer?
                 do {
-                    xxx = try self.mapView?.mapboxMap.source(
+                    previousSource = try self.mapView?.mapboxMap.source(
                         withId: "tractor_marker")
+
                 } catch _ {
                     print("source bulunamadı tractor_marker")
                 }
-              
-                if xxx != nil {
+
+                //                do{
+                //                    iconLayer = try (self.mapView?.mapboxMap.layer(withId: "tractor_marker") as? SymbolLayer)
+                //
+                //                }catch _ {
+                //                    print("layer bulunamadı")
+                //                }
+
+                if previousSource != nil {
                     self.mapView?.mapboxMap.updateGeoJSONSource(
                         withId: "tractor_marker", data: source.data!)
+                    if iconLayer != nil {
+                        //                        iconLayer?.iconRotate = .constant(heading)
+                        print(
+                            "layer heading \(heading) - \(iconLayer?.iconRotate ?? .constant(-999))"
+                        )
+                    }
                 } else {
-                    let imageExpression = Exp(.match) {
-                        Exp(.get) { "icon_key" }
-                        "tractor_marker_image"
+                    try self.mapView?.mapboxMap.addImage(
+                        UIImage(named: "tractor-marker")!,
+                        id: "tractor_marker_image")
+                    //                    let imageExpression = Exp(.match) {
+                    //                        Exp(.get) { "icon_key" }
+                    //                        "tractor_marker_image"
+                    //                    }
+                    let headingExp = Exp(.match) {
+                        Exp(.get) { "icon_rotation" }
+                        "heading_value"
                     }
                     try self.mapView?.mapboxMap.addSource(source)
                     var layer = SymbolLayer(
                         id: "tractor_marker", source: "tractor_marker")
-                    layer.iconImage = .expression(imageExpression)
+                    layer.iconImage = .constant(.name("tractor_marker_image"))
                     layer.iconAnchor = .constant(.center)
                     layer.iconAllowOverlap = .constant(false)
+                    layer.iconRotate = .expression(
+                        Exp(.mod) {
+                            Exp(.get) { "icon_rotation" }
+                            heading
+                        })
+                    iconLayer?.iconRotationAlignment = .constant(
+                        IconRotationAlignment(rawValue: "map"))
+                    layer.iconAllowOverlap = .constant(true)
+                    layer.iconSize = .constant(2)
+
                     try self.mapView?.mapboxMap.addLayer(layer)
                 }
 
