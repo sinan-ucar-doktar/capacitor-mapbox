@@ -225,41 +225,12 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
         }
         view.backgroundColor = UIColor(white: 1, alpha: 0)
     }
-    //
-    //    @objc func buildMapAsView(_ call: CAPPluginCall) {
-    //        DispatchQueue.main.async {
-    //            let mainView = self.bridge?.webView?.scrollView  // self.bridge?.viewController?.view
-    //            self.clearViewBackground(view: mainView!)
-    //            // mainView?.subviews.first?.backgroundColor = UIColor(white: 1, alpha: 0)
-    //            //let screenSize: CGRect = UIScreen.main.bounds
-    //            //let myView = UIView(frame: CGRect(x: 0, y: 0, width: screenSize.width, height: screenSize.height))
-    //            //mainView!.addSubview(myView)
-    //            //mainView!.sendSubviewToBack(myView)
-    //            let mapView = MapView(frame: mainView!.bounds)
-    //            let cameraOptions = CameraOptions(
-    //                center:
-    //                    CLLocationCoordinate2D(latitude: 39.5, longitude: -98.0),
-    //                zoom: 2, bearing: 0, pitch: 0)
-    //            mapView.mapboxMap.setCamera(to: cameraOptions)
-    //            mapView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-    //
-    //            //mainView!.addSubview(mapView)
-    //            //.scrollView.sendSubviewToBack(customMapView.view)
-    //            mainView!.addSubview(mapView)
-    //            mainView!.sendSubviewToBack(mapView)
-    //            call.resolve([
-    //                "value": mapView
-    //            ])
-    //        }
-    //    }
 
     @objc func buildMap(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             let mainView = self.bridge?.viewController?.view
             self.mainViewHeight = mainView!.bounds.height
             self.modalIsMinimized = true
-            //let screenSize: CGRect = UIScreen.main.bounds
-            //let myView = UIView(frame: CGRect(x: 0, y: 0, width: screenSize.width - 10, height: 10))
             mainView!.addSubview(self.mapCanvas)
             self.minimizedConstraint = self.mapCanvas.heightAnchor.constraint(
                 equalToConstant: mainView!.bounds.height * 0.1)
@@ -268,8 +239,6 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
             self.minimizedConstraint!.isActive = true
             self.fullScreenConstraint!.isActive = false
             NSLayoutConstraint.activate([
-                //  self.mapCanvas.centerXAnchor.constraint(equalTo: mainView!.centerXAnchor),
-                //                self.mapCanvas.centerYAnchor.constraint(equalTo: mainView!.centerYAnchor),
                 self.mapCanvas.widthAnchor.constraint(
                     equalToConstant: mainView!.bounds.width * 1),
                 self.mapCanvas.bottomAnchor.constraint(
@@ -301,23 +270,6 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
 
             self.mapCanvas.addSubview(self.mapView!)
             self.mapCanvas.insertSubview(button, aboveSubview: self.mapView!)
-
-            //            do {
-            //                //                let stringData = Data(base64Encoded: self.markerIcon)
-            //                let uiImage = UIImage(named: "tractor-marker")  // UIImage(data: stringData!)
-            //                //                else {
-            //                //                          print("Error: couldn't create UIImage")
-            //                //                          return
-            //                //                      }
-            //                try self.mapView?.mapboxMap.addImage(
-            //                    uiImage!, id: "tractor_marker_image")
-            //                let res = self.mapView?.mapboxMap.imageExists(
-            //                    withId: "tractor_marker_image")
-            //                                print("image exist \(String(describing: res))")
-            //            } catch let error {
-            //                print("marker image add error")
-            //                print(error.localizedDescription)
-            //            }
             call.resolve([
                 "status": true
             ])
@@ -326,9 +278,6 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
 
     @objc func destroyMap(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
-
-            //            let mainView = self.bridge?.viewController?.view
-
             self.minimizedConstraint?.isActive = false
             self.fullScreenConstraint?.isActive = false
             self.mapView?.removeFromSuperview()
@@ -340,44 +289,82 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
     @objc func addLineString(_ call: CAPPluginCall) {
 
         DispatchQueue.main.async {
-            let lineStringId = call.getString("lineStringId") ?? "lineStringId"
-            let geojson = (call.getArray("geoJson") ?? []) as! [[Double]]
+            let lineStringId = call.getString("lineStringId", "lineStringId")
+//            let wktType = call.getString("wktType", "LINESTRING")
+            var geojson = call.getArray("geoJson", [])
+            
             if geojson.count == 0 {
                 return call.reject("geojson not found")
             } else {
 
                 do {
                     var lineStringSource = GeoJSONSource(id: lineStringId)
+                    var geometry: Geometry? = nil
 
-                    //                var coordinates: Array<CLLocationCoordinate2D> = []
-                    var wktStr = geojson.map { t in
-                        return "\(t[0]) \(t[1])"
-                    }.joined(separator: ", ")
-
-                    var geometry = try Geometry(wkt: "LINESTRING (\(wktStr))")
-                    var feature: Feature = Feature(geometry: geometry)
-                    lineStringSource.data = .feature(feature)
-                    var xxx: Source?
-                    do {
-                        xxx = try self.mapView?.mapboxMap.source(
-                            withId: lineStringId)
-                    } catch let error {
-                        print("source bulunamadı \(lineStringId)")
+//                    if wktType == "LINESTRING" {
+                        
+                        let wktStr = geojson.map { t in
+                            let temp = t as! [Double]
+                            return "\(temp[0]) \(temp[1])"
+                        }.joined(separator: ", ")
+                        do{
+                            geometry = try Geometry(wkt: "LINESTRING (\(wktStr))")
+                        } catch _ {
+                            print("error on create geometry")
+                        }
+//                    }
+//                    else if wktType == "MULTILINESTRING" {
+//                        var wktStr = ""
+//                        var wktStrArray: [String] = []
+//                        geojson.forEach{el in
+//                            var tempCoords = (el as! [[Double]]).map {t in
+//                                return "\(t[0]) \(t[1])"
+//                            }.joined(separator: ", ")
+//                            wktStrArray.append("(\(tempCoords)")
+//                        }
+//                        wktStr = wktStrArray.joined(separator: ", ")
+//                        do{
+//                            geometry = try Geometry(wkt: "MULTILINESTRING (\(wktStr))")
+//                        } catch _ {
+//                            print("error on create geometry")
+//                        }
+//                    }else{
+//                        geometry = nil
+//                    }
+                    
+                    if(geometry != nil){
+                        let feature: Feature = Feature(geometry: geometry!)
+                        lineStringSource.data = .feature(feature)
+                        var xxx: Source?
+                        do {
+                            xxx = try self.mapView?.mapboxMap.source(
+                                withId: lineStringId)
+                        } catch _ {
+                            print("source bulunamadı \(lineStringId)")
+                        }
+                        
+                        if xxx != nil {
+                            self.mapView?.mapboxMap.updateGeoJSONSource(
+                                withId: lineStringId, data: lineStringSource.data!)
+                        } else {
+                            do{
+                                try self.mapView?.mapboxMap.addSource(lineStringSource)
+                            }catch _ {
+                                
+                            }
+                            var layer = LineLayer(
+                                id: lineStringId, source: lineStringId)
+                            layer.lineColor = .constant(
+                                StyleColor.init(UIColor.white))
+                            layer.lineWidth = .constant(5)
+                            do{
+                                try self.mapView?.mapboxMap.addLayer(layer)
+                            }catch _ {
+                                
+                            }
+                        }
+                        call.resolve(["status": true])
                     }
-
-                    if xxx != nil {
-                        self.mapView?.mapboxMap.updateGeoJSONSource(
-                            withId: lineStringId, data: lineStringSource.data!)
-                    } else {
-                        try self.mapView?.mapboxMap.addSource(lineStringSource)
-                        var layer = LineLayer(
-                            id: lineStringId, source: lineStringId)
-                        layer.lineColor = .constant(
-                            StyleColor.init(UIColor.white))
-                        layer.lineWidth = .constant(5)
-                        try self.mapView?.mapboxMap.addLayer(layer)
-                    }
-                    call.resolve(["status": true])
                 } catch let error {
                     call.reject(error.localizedDescription)
                 }
@@ -388,8 +375,8 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
     @objc func updateLineString(_ call: CAPPluginCall) {
 
         DispatchQueue.main.async {
-            let lineStringId = call.getString("lineStringId") ?? "lineStringId"
-            let geojson = (call.getArray("geoJson") ?? []) as! [[Double]]
+            let lineStringId = call.getString("lineStringId","lineStringId")
+            let geojson = call.getArray("geoJson", []) as! [[Double]]
             if geojson.count == 0 {
                 return call.reject("geojson not found")
             } else {
@@ -407,12 +394,6 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
                     self.mapView?.mapboxMap.updateGeoJSONSource(
                         withId: lineStringId, data: lineStringSource.data!)
                     call.resolve(["status": true])
-                    //                try self.mapView?.mapboxMap.addSource(lineStringSource)
-                    //
-                    //                var layer = LineLayer(id: lineStringId, source: lineStringId)
-                    //                layer.lineColor = .constant(StyleColor.init(UIColor.white))
-                    //                layer.lineWidth = .constant(5)
-                    //                try self.mapView?.mapboxMap.addLayer(layer)
                 } catch let error {
                     call.reject(error.localizedDescription)
                 }
@@ -423,11 +404,13 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
     @objc func addPolygon(_ call: CAPPluginCall) {
 
         DispatchQueue.main.async {
-            let polygonId = call.getString("polygonId") ?? "polygonId"
+            do{
+             
+            let polygonId = call.getString("polygonId", "polygonId")
 
-            let imageUrl = call.getString("imageUrl") ?? ""
-//            let bounds = (call.getArray("bounds") ?? []) as [[Double]]
-            let geojson = (call.getArray("geoJson") ?? []) as! [[[Double]]]
+            let imageUrl = call.getString("imageUrl", "")
+//            let bounds = (call.getArray("bounds") ?? []) as! [Double]
+                guard let geojson = call.getArray("geoJson", []) as? [[[Double]]] else { return }
             let hasIntersection = call.getBool("hasIntersect", false)
             let isErrorPolygon = call.getBool("isError", false)
             if geojson.count == 0 {
@@ -435,7 +418,6 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
             } else {
 
                 do {
-                    var polygonSource = GeoJSONSource(id: polygonId)
 
                     var wktStrArray: [String] = []
                     geojson.forEach { t in
@@ -446,7 +428,8 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
                     }
                     var wktStr =
                         "MULTIPOLYGON (\(wktStrArray.joined(separator: ", ")))"
-
+                    
+                    var polygonSource = GeoJSONSource(id: polygonId)
                     var geometry = try Geometry(wkt: wktStr)
                     var feature: Feature = Feature(geometry: geometry)
                     polygonSource.data = .feature(feature)
@@ -506,44 +489,43 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
                     call.reject(error.localizedDescription)
                 }
             }
+            }catch let error{
+                call.reject(error.localizedDescription)
+            }
         }
     }
 
     @objc func updatePolygon(_ call: CAPPluginCall) {
 
         DispatchQueue.main.async {
-            let polygonId = call.getString("polygonId") ?? "polygonId"
-            let geojson = (call.getArray("geoJson") ?? []) as! [[[Double]]]
-            if geojson.count == 0 {
-                return call.reject("geojson not found")
-            } else {
-
+            let id = call.getString("id")
+            let processType = call.getString("type")
+            if(id == nil){
+                call.reject("id required")
+            }else{
                 do {
-                    var polygonSource = GeoJSONSource(id: polygonId)
-
-                    var wktStrArray: [String] = []
-                    geojson.forEach { t in
-                        var tempStr = t.map { j in
-                            return "\(j[0]) \(j[1])"
-                        }.joined(separator: ", ")
-                        wktStrArray.append("(\(tempStr))")
+                    
+                    var source = self.mapView?.mapboxMap.sourceExists(withId: id!)
+                    if(source!){
+                        var layer = self.mapView?.mapboxMap.layerExists(withId: id!)
+                        if(layer!){
+                            if(processType == "delete"){
+                                do{
+                                    try self.mapView?.mapboxMap.removeLayer(withId: id!)
+                                }catch _ {}
+                            }
+                        }
+                        if(processType == "delete"){
+                            do{
+                                try self.mapView?.mapboxMap.removeSource(withId: id!)
+                            }catch _ {}
+                        }
+                        
+                        call.resolve(["status": true])
+                    }else{
+                        call.resolve(["status": false, "message": "source not found"])
                     }
-                    var wktStr = wktStrArray.joined(separator: ", ")
-
-                    var geometry = try Geometry(wkt: "POLYGON (\(wktStr))")
-                    var feature: Feature = Feature(geometry: geometry)
-                    polygonSource.data = .feature(feature)
-
-                    self.mapView?.mapboxMap.updateGeoJSONSource(
-                        withId: polygonId, data: polygonSource.data!)
-                    call.resolve(["status": true])
-                    //
-                    //                try self.mapView?.mapboxMap.addSource(polygonSource)
-                    //                var layer = FillLayer(id: polygonId, source: polygonId)
-                    //                layer.fillColor = .constant(StyleColor(red: 142, green: 142, blue: 142, alpha: 0.6)!)
-                    //                layer.fillOutlineColor = .constant(StyleColor(red: 142, green: 142, blue: 142, alpha: 1)!)
-                    //
-                    //                try self.mapView?.mapboxMap.addLayer(layer)
+                    
                 } catch let error {
                     call.reject(error.localizedDescription)
                 }
@@ -557,9 +539,9 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
     @objc func addOverlayImage(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             do {
-                let imageUrl = call.getString("imageUrl") ?? ""
-
-                let imageBounds = call.getArray("bounds", []) as! [[Double]]
+                let imageUrl = call.getString("imageUrl", "")
+                guard let imageBounds = call.getArray("bounds", []) as? [[Double]] else { return }
+//                let imageBounds = call.getArray("bounds", []) as! [[Double]]
                 print("addOverlayImage")
                 print(imageBounds)
                 if imageUrl.isEmpty {
@@ -592,12 +574,13 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
     @objc func addOrUpdateMarker(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             do {
-                let markerCoordinates =
-                    call.getArray("coordinates", []) as! [Double]
+//                let markerCoordinates =
+//                    call.getArray("coordinates", []) as! [Double]
+                guard let markerCoordinates = call.getArray("coordinates", []) as? [Double] else { return }
                 //                let markerImage = call.getString(
                 //                    "markerImage", "https://orbit-web.doktar.io/vra-marker.svg")
-                let heading = call.getDouble("heading") ?? 35
-
+                var heading = call.getDouble("heading") ?? 0
+                heading = heading * -1
                 let hasMarker = call.getBool("hasMarker", false)
                 if markerCoordinates.count == 0 {
                     return call.reject("marker coordinates required")
@@ -606,25 +589,14 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
                     latitude: markerCoordinates[1],
                     longitude: markerCoordinates[0])
                 let customImage = UIImage(named: "tractor-marker")
-                //                let pointAnnotationManager = self.mapView?.annotations.makePointAnnotationManager()
-                //
-                //                if(self.customPointAnnotation != nil){
-                //                    self.customPointAnnotation!.point = Point(locationCoordinate)
-                //                }else{
-                //
-                //                    self.customPointAnnotation = PointAnnotation(id: "tractor-marker", point: Point(locationCoordinate))
-                //                    self.customPointAnnotation!.image = .init(image: customImage!, name: "tractor_marker_image")
-                //                    self.customPointAnnotation!.isDraggable = true
-                //                    self.customPointAnnotation!.iconOffset = [0, 12]
-                //                    self.customPointAnnotation!.iconRotate = heading
-                //
-                //                    pointAnnotationManager!.annotations = [self.customPointAnnotation!]
-                //                }
-
+                if self.mapView?.mapboxMap.cameraState.bearing.isNaN == false {
+                    let mapBearing = self.mapView?.mapboxMap.cameraState.bearing.toRadians().significand
+                    heading = heading - mapBearing!
+                }
                 var feature = Feature(geometry: Point(locationCoordinate))
                 feature.properties = [
                     "icon_key": .string("tractor_marker_image"),
-                    "icon_rotation": .number(heading + 180),
+                    "icon_rotation": .number(heading),
                 ]
                 var source = GeoJSONSource(id: "tractor_marker")
                 source.data = .feature(feature)
@@ -638,18 +610,18 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
                     print("source bulunamadı tractor_marker")
                 }
 
-                //                do{
-                //                    iconLayer = try (self.mapView?.mapboxMap.layer(withId: "tractor_marker") as? SymbolLayer)
-                //
-                //                }catch _ {
-                //                    print("layer bulunamadı")
-                //                }
 
                 if previousSource != nil {
                     self.mapView?.mapboxMap.updateGeoJSONSource(
                         withId: "tractor_marker", data: source.data!)
                     if iconLayer != nil {
                         //                        iconLayer?.iconRotate = .constant(heading)
+                        do {
+                           try self.mapView?.mapboxMap.setLayerProperty(for: "tractor_marker", property: "icon_rotate", value: heading)
+                        } catch _ {
+                            
+                        }
+                        
                         print(
                             "layer heading \(heading) - \(iconLayer?.iconRotate ?? .constant(-999))"
                         )
@@ -694,7 +666,8 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
     @objc func flyTo(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             do {
-                let rawCenter = call.getArray("center", []) as! [Double]
+//                let rawCenter = call.getArray("center", []) as! [Double]
+                guard let rawCenter = call.getArray("center", []) as? [Double] else { return }
                 let zoom = call.getInt("zoom", 20)
                 let duration = call.getDouble("duration", 1)
                 let centerCoordinate = CLLocationCoordinate2D(
@@ -711,7 +684,8 @@ public class CapacitorMapboxPlugin: CAPPlugin, CAPBridgedPlugin,
     @objc func centerMapByBounds(_ call: CAPPluginCall) {
         DispatchQueue.main.async {
             do {
-                let bounds = (call.getArray("bounds") ?? []) as [[Double]]
+//                let bounds = (call.getArray("bounds") ?? []) as [[Double]]
+                guard let bounds = call.getArray("bounds", []) as? [[Double]] else { return }
                 let cameraBounds = bounds.map { t in
                     return CLLocationCoordinate2DMake(t[1], t[0])
                 }
